@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, serverTimestamp, onSnapshot, updateDoc, doc } from 'firebase/firestore';
-import { db } from './firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { db, auth } from './firebase';
 
 function StudentDash({ rollNo, onBack }) {
   const [orders, setOrders] = useState([]);
@@ -25,7 +26,6 @@ function StudentDash({ rollNo, onBack }) {
       display: 'flex', justifyContent: 'center', fontFamily: 'sans-serif'
     }}>
       <div style={{ width: '360px', padding: '28px 20px' }}>
-
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <p style={{ color: '#6B6A80', margin: 0, fontSize: '13px' }}>Welcome back,</p>
@@ -99,7 +99,6 @@ function StudentDash({ rollNo, onBack }) {
           background: 'transparent', color: '#6B6A80',
           fontWeight: '600', fontSize: '13px', cursor: 'pointer'
         }}>← Back to Login</button>
-
       </div>
     </div>
   );
@@ -127,7 +126,6 @@ function WasherDash({ onNew, onBack }) {
       display: 'flex', justifyContent: 'center', fontFamily: 'sans-serif'
     }}>
       <div style={{ width: '360px', padding: '28px 20px' }}>
-
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <p style={{ color: '#6B6A80', margin: 0, fontSize: '13px' }}>Dashboard</p>
@@ -214,7 +212,6 @@ function WasherDash({ onNew, onBack }) {
           background: 'transparent', color: '#6B6A80',
           fontWeight: '600', fontSize: '13px', cursor: 'pointer'
         }}>← Back to Login</button>
-
       </div>
     </div>
   );
@@ -223,8 +220,114 @@ function WasherDash({ onNew, onBack }) {
 function App() {
   const [role, setRole] = useState('student');
   const [screen, setScreen] = useState('login');
+  const [phone, setPhone] = useState('');
   const [rollNo, setRollNo] = useState('');
   const [clothes, setClothes] = useState('');
+  const [otp, setOtp] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const setupRecaptcha = () => {
+    if (window.recaptchaVerifier) {
+      window.recaptchaVerifier.clear();
+      window.recaptchaVerifier = null;
+    }
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'invisible',
+      callback: () => {}
+    });
+  };
+
+  const sendOTP = async () => {
+    if (phone.length < 10) {
+      alert('Please enter a valid 10 digit phone number!');
+      return;
+    }
+    if (role === 'student' && rollNo.trim() === '') {
+      alert('Please enter your roll number!');
+      return;
+    }
+    try {
+      setLoading(true);
+      setupRecaptcha();
+      const phoneNumber = '+91' + phone;
+      const result = await signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier);
+      setConfirmationResult(result);
+      setScreen('otp');
+    } catch (error) {
+      alert('Error sending OTP: ' + error.message);
+      window.recaptchaVerifier = null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOTP = async () => {
+    if (otp.length !== 6) {
+      alert('Please enter a valid 6 digit OTP!');
+      return;
+    }
+    try {
+      setLoading(true);
+      await confirmationResult.confirm(otp);
+      setScreen(role === 'student' ? 'dashboard' : 'washerDash');
+    } catch (error) {
+      alert('Invalid OTP! Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // OTP SCREEN
+  if (screen === 'otp') {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#0F0F13',
+        display: 'flex', justifyContent: 'center',
+        alignItems: 'center', fontFamily: 'sans-serif'
+      }}>
+        <div style={{
+          width: '360px', padding: '40px 24px',
+          display: 'flex', flexDirection: 'column', gap: '24px'
+        }}>
+          <div>
+            <h1 style={{ color: '#F0EFF8', fontSize: '28px', margin: 0 }}>Enter OTP</h1>
+            <p style={{ color: '#6B6A80', margin: '6px 0 0 0' }}>Sent to +91 {phone}</p>
+          </div>
+
+          <div>
+            <label style={{ color: '#6B6A80', fontSize: '12px', fontWeight: '600' }}>6-DIGIT OTP</label>
+            <input
+              value={otp}
+              onChange={e => setOtp(e.target.value)}
+              placeholder='······'
+              maxLength={6}
+              style={{
+                marginTop: '8px', width: '100%', padding: '14px 16px',
+                background: '#17171F', border: '1.5px solid #2A2A38',
+                borderRadius: '12px', color: '#F0EFF8', fontSize: '22px',
+                outline: 'none', boxSizing: 'border-box',
+                letterSpacing: '8px', textAlign: 'center'
+              }} />
+          </div>
+
+          <button onClick={verifyOTP} disabled={loading} style={{
+            padding: '15px', borderRadius: '14px', border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(135deg, #6C63FF, #8B84FF)',
+            color: '#fff', fontWeight: '700', fontSize: '15px',
+            opacity: loading ? 0.7 : 1
+          }}>
+            {loading ? 'Verifying...' : 'Verify OTP →'}
+          </button>
+
+          <button onClick={() => setScreen('login')} style={{
+            background: 'none', border: 'none', color: '#6B6A80',
+            fontSize: '14px', cursor: 'pointer'
+          }}>← Back</button>
+        </div>
+      </div>
+    );
+  }
 
   // NEW ORDER SCREEN
   if (screen === 'newOrder') {
@@ -321,11 +424,11 @@ function App() {
       display: 'flex', justifyContent: 'center',
       alignItems: 'center', fontFamily: 'sans-serif'
     }}>
+      <div id="recaptcha-container"></div>
       <div style={{
         width: '360px', padding: '40px 24px',
         display: 'flex', flexDirection: 'column', gap: '24px'
       }}>
-
         <div>
           <h1 style={{ color: '#F0EFF8', fontSize: '32px', margin: 0 }}>WashTrack</h1>
           <p style={{ color: '#6B6A80', margin: '6px 0 0 0' }}>NIT Hamirpur Hostel Laundry</p>
@@ -349,22 +452,29 @@ function App() {
         </div>
 
         <div>
-          <label style={{ color: '#6B6A80', fontSize: '12px', fontWeight: '600' }}>
-            PHONE NUMBER
-          </label>
-          <input placeholder='+91 98XXX XXXXX' style={{
-            marginTop: '8px', width: '100%', padding: '14px 16px',
-            background: '#17171F', border: '1.5px solid #2A2A38',
-            borderRadius: '12px', color: '#F0EFF8', fontSize: '15px',
-            outline: 'none', boxSizing: 'border-box'
-          }} />
+          <label style={{ color: '#6B6A80', fontSize: '12px', fontWeight: '600' }}>PHONE NUMBER</label>
+          <div style={{ display: 'flex', marginTop: '8px', gap: '8px' }}>
+            <div style={{
+              padding: '14px 12px', background: '#17171F',
+              border: '1.5px solid #2A2A38', borderRadius: '12px',
+              color: '#F0EFF8', fontSize: '15px'
+            }}>+91</div>
+            <input
+              value={phone}
+              onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              placeholder='98XXX XXXXX'
+              style={{
+                flex: 1, padding: '14px 16px',
+                background: '#17171F', border: '1.5px solid #2A2A38',
+                borderRadius: '12px', color: '#F0EFF8', fontSize: '15px',
+                outline: 'none', boxSizing: 'border-box'
+              }} />
+          </div>
         </div>
 
         {role === 'student' && (
           <div>
-            <label style={{ color: '#6B6A80', fontSize: '12px', fontWeight: '600' }}>
-              ROLL NUMBER
-            </label>
+            <label style={{ color: '#6B6A80', fontSize: '12px', fontWeight: '600' }}>ROLL NUMBER</label>
             <input
               placeholder='e.g. 21BPH001'
               value={rollNo}
@@ -378,12 +488,13 @@ function App() {
           </div>
         )}
 
-        <button onClick={() => setScreen(role === 'student' ? 'dashboard' : 'washerDash')} style={{
+        <button onClick={sendOTP} disabled={loading} style={{
           padding: '15px', borderRadius: '14px', border: 'none', cursor: 'pointer',
           background: 'linear-gradient(135deg, #6C63FF, #8B84FF)',
-          color: '#fff', fontWeight: '700', fontSize: '15px'
+          color: '#fff', fontWeight: '700', fontSize: '15px',
+          opacity: loading ? 0.7 : 1
         }}>
-          Send OTP →
+          {loading ? 'Sending OTP...' : 'Send OTP →'}
         </button>
 
       </div>
