@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from './firebase';
 
 function WasherDash({ onNew, onBack }) {
@@ -80,14 +80,28 @@ function WasherDash({ onNew, onBack }) {
               <div style={{ color: '#F0EFF8', fontWeight: '600', fontSize: '13px' }}>{order.rollNo}</div>
               <div style={{ color: '#6B6A80', fontSize: '12px' }}>{order.clothes}</div>
             </div>
-            <span style={{
-              fontSize: '11px', fontWeight: '700',
-              color: order.status === 'done' ? '#22D47A' : order.status === 'washing' ? '#6C63FF' : '#F5A623',
-              background: order.status === 'done' ? 'rgba(34,212,122,0.12)' : order.status === 'washing' ? 'rgba(108,99,255,0.18)' : 'rgba(245,166,35,0.12)',
-              padding: '3px 10px', borderRadius: '20px'
-            }}>
-              {order.status === 'done' ? 'Ready ✓' : order.status === 'washing' ? 'Washing' : 'Pending'}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {order.status !== 'done' && (
+                <button onClick={async () => {
+                  const next = order.status === 'pending' ? 'washing' : 'done';
+                  await updateDoc(doc(db, 'orders', order.id), { status: next });
+                }} style={{
+                  padding: '4px 10px', borderRadius: '8px', border: 'none',
+                  cursor: 'pointer', fontSize: '11px', fontWeight: '600',
+                  background: 'rgba(108,99,255,0.18)', color: '#8B84FF',
+                }}>
+                  {order.status === 'pending' ? 'Start →' : 'Done →'}
+                </button>
+              )}
+              <span style={{
+                fontSize: '11px', fontWeight: '700',
+                color: order.status === 'done' ? '#22D47A' : order.status === 'washing' ? '#6C63FF' : '#F5A623',
+                background: order.status === 'done' ? 'rgba(34,212,122,0.12)' : order.status === 'washing' ? 'rgba(108,99,255,0.18)' : 'rgba(245,166,35,0.12)',
+                padding: '3px 10px', borderRadius: '20px'
+              }}>
+                {order.status === 'done' ? 'Ready ✓' : order.status === 'washing' ? 'Washing' : 'Pending'}
+              </span>
+            </div>
           </div>
         ))}
 
