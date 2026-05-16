@@ -2,6 +2,109 @@ import React, { useState, useEffect } from 'react';
 import { collection, addDoc, serverTimestamp, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from './firebase';
 
+function StudentDash({ rollNo, onBack }) {
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    const q = collection(db, 'orders');
+    const unsub = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(order => order.rollNo === rollNo);
+      setOrders(data);
+    });
+    return () => unsub();
+  }, [rollNo]);
+
+  const active = orders.filter(o => o.status !== 'done').length;
+  const ready = orders.filter(o => o.status === 'done').length;
+
+  return (
+    <div style={{
+      minHeight: '100vh', background: '#0F0F13',
+      display: 'flex', justifyContent: 'center', fontFamily: 'sans-serif'
+    }}>
+      <div style={{ width: '360px', padding: '28px 20px' }}>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <p style={{ color: '#6B6A80', margin: 0, fontSize: '13px' }}>Welcome back,</p>
+            <h2 style={{ color: '#F0EFF8', margin: '4px 0 0 0' }}>{rollNo} 👋</h2>
+          </div>
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '50%',
+            background: 'linear-gradient(135deg, #6C63FF, #8B84FF)',
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'center', color: '#fff', fontWeight: '800'
+          }}>{rollNo[0]}</div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '24px' }}>
+          {[
+            { label: 'Active Orders', value: active, icon: '🧺', color: '#6C63FF' },
+            { label: 'Ready to Pick', value: ready, icon: '✅', color: '#22D47A' },
+          ].map(c => (
+            <div key={c.label} style={{
+              background: '#17171F', border: '1.5px solid #2A2A38',
+              borderRadius: '16px', padding: '16px'
+            }}>
+              <div style={{ fontSize: '24px' }}>{c.icon}</div>
+              <div style={{ color: c.color, fontSize: '26px', fontWeight: '800', marginTop: '4px' }}>{c.value}</div>
+              <div style={{ color: '#6B6A80', fontSize: '12px' }}>{c.label}</div>
+            </div>
+          ))}
+        </div>
+
+        <h3 style={{ color: '#F0EFF8', marginTop: '24px' }}>Your Orders</h3>
+
+        {orders.length === 0 && (
+          <div style={{ color: '#6B6A80', textAlign: 'center', marginTop: '40px', fontSize: '14px' }}>
+            No orders found for {rollNo}
+          </div>
+        )}
+
+        {orders.map(order => (
+          <div key={order.id} style={{
+            background: '#17171F', border: '1.5px solid #2A2A38',
+            borderRadius: '16px', padding: '14px 16px',
+            marginBottom: '10px', display: 'flex',
+            alignItems: 'center', gap: '14px'
+          }}>
+            <div style={{
+              width: '46px', height: '46px', borderRadius: '12px',
+              background: 'rgba(108,99,255,0.18)',
+              display: 'flex', alignItems: 'center',
+              justifyContent: 'center', fontSize: '22px'
+            }}>🧺</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: '#F0EFF8', fontWeight: '600', fontSize: '14px' }}>{order.clothes}</div>
+              <div style={{ color: '#6B6A80', fontSize: '12px', marginTop: '2px' }}>
+                {order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleDateString() : 'Just now'}
+              </div>
+            </div>
+            <span style={{
+              fontSize: '11px', fontWeight: '700',
+              color: order.status === 'done' ? '#22D47A' : order.status === 'washing' ? '#6C63FF' : '#F5A623',
+              background: order.status === 'done' ? 'rgba(34,212,122,0.12)' : order.status === 'washing' ? 'rgba(108,99,255,0.18)' : 'rgba(245,166,35,0.12)',
+              padding: '3px 10px', borderRadius: '20px'
+            }}>
+              {order.status === 'done' ? 'Ready ✓' : order.status === 'washing' ? 'Washing' : 'Pending'}
+            </span>
+          </div>
+        ))}
+
+        <button onClick={onBack} style={{
+          width: '100%', marginTop: '8px', padding: '12px',
+          borderRadius: '12px', border: '1.5px solid #2A2A38',
+          background: 'transparent', color: '#6B6A80',
+          fontWeight: '600', fontSize: '13px', cursor: 'pointer'
+        }}>← Back to Login</button>
+
+      </div>
+    </div>
+  );
+}
+
 function WasherDash({ onNew, onBack }) {
   const [orders, setOrders] = useState([]);
 
@@ -208,85 +311,7 @@ function App() {
 
   // STUDENT DASHBOARD
   if (screen === 'dashboard') {
-    return (
-      <div style={{
-        minHeight: '100vh', background: '#0F0F13',
-        display: 'flex', justifyContent: 'center', fontFamily: 'sans-serif'
-      }}>
-        <div style={{ width: '360px', padding: '28px 20px' }}>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p style={{ color: '#6B6A80', margin: 0, fontSize: '13px' }}>Welcome back,</p>
-              <h2 style={{ color: '#F0EFF8', margin: '4px 0 0 0' }}>Rohan 👋</h2>
-              <p style={{ color: '#6B6A80', margin: '2px 0 0 0', fontSize: '12px' }}>Himgiri · Room 204</p>
-            </div>
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '50%',
-              background: 'linear-gradient(135deg, #6C63FF, #8B84FF)',
-              display: 'flex', alignItems: 'center',
-              justifyContent: 'center', color: '#fff', fontWeight: '800'
-            }}>R</div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '24px' }}>
-            {[
-              { label: 'Active Orders', value: '2', icon: '🧺', color: '#6C63FF' },
-              { label: 'Ready to Pick', value: '1', icon: '✅', color: '#22D47A' },
-            ].map(c => (
-              <div key={c.label} style={{
-                background: '#17171F', border: '1.5px solid #2A2A38',
-                borderRadius: '16px', padding: '16px'
-              }}>
-                <div style={{ fontSize: '24px' }}>{c.icon}</div>
-                <div style={{ color: c.color, fontSize: '26px', fontWeight: '800', marginTop: '4px' }}>{c.value}</div>
-                <div style={{ color: '#6B6A80', fontSize: '12px' }}>{c.label}</div>
-              </div>
-            ))}
-          </div>
-
-          <h3 style={{ color: '#F0EFF8', marginTop: '24px' }}>Your Orders</h3>
-          {[
-            { id: 'ORD001', clothes: '2 Shirts, 1 Jeans', date: 'May 10', status: 'done', emoji: '👕' },
-            { id: 'ORD002', clothes: '3 T-shirts, 2 Trousers', date: 'May 11', status: 'washing', emoji: '👔' },
-          ].map(order => (
-            <div key={order.id} style={{
-              background: '#17171F', border: '1.5px solid #2A2A38',
-              borderRadius: '16px', padding: '14px 16px',
-              marginBottom: '10px', display: 'flex',
-              alignItems: 'center', gap: '14px'
-            }}>
-              <div style={{
-                width: '46px', height: '46px', borderRadius: '12px',
-                background: 'rgba(108,99,255,0.18)',
-                display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: '22px'
-              }}>{order.emoji}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: '#F0EFF8', fontWeight: '600', fontSize: '14px' }}>{order.clothes}</div>
-                <div style={{ color: '#6B6A80', fontSize: '12px', marginTop: '2px' }}>Given on {order.date}</div>
-              </div>
-              <span style={{
-                fontSize: '11px', fontWeight: '700',
-                color: order.status === 'done' ? '#22D47A' : '#6C63FF',
-                background: order.status === 'done' ? 'rgba(34,212,122,0.12)' : 'rgba(108,99,255,0.18)',
-                padding: '3px 10px', borderRadius: '20px'
-              }}>
-                {order.status === 'done' ? 'Ready ✓' : 'Washing'}
-              </span>
-            </div>
-          ))}
-
-          <button onClick={() => setScreen('login')} style={{
-            width: '100%', marginTop: '8px', padding: '12px',
-            borderRadius: '12px', border: '1.5px solid #2A2A38',
-            background: 'transparent', color: '#6B6A80',
-            fontWeight: '600', fontSize: '13px', cursor: 'pointer'
-          }}>← Back to Login</button>
-
-        </div>
-      </div>
-    );
+    return <StudentDash rollNo={rollNo} onBack={() => setScreen('login')} />;
   }
 
   // LOGIN SCREEN
@@ -334,6 +359,24 @@ function App() {
             outline: 'none', boxSizing: 'border-box'
           }} />
         </div>
+
+        {role === 'student' && (
+          <div>
+            <label style={{ color: '#6B6A80', fontSize: '12px', fontWeight: '600' }}>
+              ROLL NUMBER
+            </label>
+            <input
+              placeholder='e.g. 21BPH001'
+              value={rollNo}
+              onChange={e => setRollNo(e.target.value)}
+              style={{
+                marginTop: '8px', width: '100%', padding: '14px 16px',
+                background: '#17171F', border: '1.5px solid #2A2A38',
+                borderRadius: '12px', color: '#F0EFF8', fontSize: '15px',
+                outline: 'none', boxSizing: 'border-box'
+              }} />
+          </div>
+        )}
 
         <button onClick={() => setScreen(role === 'student' ? 'dashboard' : 'washerDash')} style={{
           padding: '15px', borderRadius: '14px', border: 'none', cursor: 'pointer',
